@@ -1,0 +1,70 @@
+# Number of pod replicas
+replicaCount: 2
+
+# Container image to deploy
+image:
+  repository: quay.io/redhattraining/hello-world-nginx   # NGINX example app
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+# Service exposed inside the cluster
+service:
+  type: ClusterIP
+  port: 8080
+
+# Resource limits (SRE best practice)
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+httpRoute:
+  enabled: false
+  parentRefs: []
+  hostnames: []
+  rules: []
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 50
+  targetMemoryUtilizationPercentage: 80
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: http        # this matches the port name "http" in deployment
+  initialDelaySeconds: 10
+  periodSeconds: 15
+  timeoutSeconds: 2
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http        # same named port
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 3
