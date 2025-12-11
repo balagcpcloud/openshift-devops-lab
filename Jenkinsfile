@@ -1,37 +1,51 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    // CHANGE these later to real values / Jenkins credentials
-    OC_API_URL  = 'https://api.rm2.thpm.p1.openshiftapps.com:6443'
-    OC_NAMESPACE = 'bala12121986-dev'
-  }
+    environment {
+        // 🔧 TODO: update these for your setup
+        REGISTRY          = 'quay.io/your-namespace'
+        IMAGE_NAME        = 'enterprise-api'
+        IMAGE_TAG         = "${env.BUILD_NUMBER}"
 
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
+        OPENSHIFT_API     = 'https://api.rm2.thpm.p1.openshiftapps.com:6443'
+        OPENSHIFT_PROJECT = 'bala12121986-dev'
+
+        HELM_RELEASE      = 'enterprise-api-helm'
+        HELM_CHART_PATH   = 'helm/enterprise-api-helm'
     }
 
-    stage('Helm lint') {
-      steps {
-        sh '''
-          echo "Running helm lint..."
-          helm lint helm/enterprise-api-helm || echo "Helm not installed on Jenkins agent yet"
-        '''
-      }
-    }
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
 
-    stage('Deploy to OpenShift (placeholder)') {
-      steps {
-        sh '''
-          echo "Here we will run:"
-          echo "oc login $OC_API_URL --token=****"
-          echo "oc project $OC_NAMESPACE"
-          echo "helm upgrade --install enterprise-api-dev ./helm/enterprise-api-helm"
-        '''
-      }
+        stage('Build & Push Image') {
+            steps {
+                sh """
+                  echo '*** Building image ***'
+                  docker build -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                  docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                """
+            }
+        }
+
+        stage('Deploy to OpenShift via Helm') {
+            steps {
+                withCredentials([string(credentialsId: 'oc-token', variable: 'OC_TOKEN')]) {
+                    sh """
+                      echo '*** Login to OpenShift ***'
+                      oc login ${OPENSHIFT_API} --token=$OC_TOKEN --insecure-skip-tls-verify=true
+                      oc project ${OPENSHIFT_PROJECT}
+
+                      echo '*** Helm upgrade/install ***'
+                      helm upgrade --install ${HELM_RELEASE} ${HELM_CHART_PATH} \
+                        --set image.repository=${REGISTRY}/${IMAGE_NAME} \
+                        --set image.tag=${IMAGE_TAG}
+                    """
+                }
+            }
+        }
     }
-  }
 }
